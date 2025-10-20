@@ -3,8 +3,46 @@ const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
 const micBtn = document.getElementById('micBtn');
 
-let memory = JSON.parse(localStorage.getItem('echoMemory')) || [];
-let conversation = [];
+// === Cloud Memory Configuration ===
+const GITHUB_TOKEN = "YOUR_PERSONAL_ACCESS_TOKEN";
+const GIST_ID = "YOUR_GIST_ID_HERE"; // the ID part from your gist URL
+const GIST_FILENAME = "echo_memory.json";
+
+let memory = [];
+
+// === Cloud Memory Functions ===
+async function loadCloudMemory() {
+  try {
+    const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}` }
+    });
+    const gist = await response.json();
+    memory = JSON.parse(gist.files[GIST_FILENAME].content);
+    addMessage('Echo', `Memory core synced. ${memory.length} memories restored.`);
+  } catch (err) {
+    addMessage('Echo', 'Could not sync cloud memory — using local cache.');
+    memory = JSON.parse(localStorage.getItem('echoMemory')) || [];
+  }
+}
+
+async function saveCloudMemory() {
+  try {
+    const content = JSON.stringify(memory, null, 2);
+    await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content } }
+      })
+    });
+  } catch (err) {
+    console.error("Cloud save failed:", err);
+  }
+}
+
 
 function addMessage(sender, text) {
   const msg = document.createElement('div');
