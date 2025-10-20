@@ -26,23 +26,32 @@ function saveMemory(userText, echoText) {
   localStorage.setItem('echoMemory', JSON.stringify(memory));
 }
 
-function generateEchoReply(input) {
-  input = input.toLowerCase();
-  if (input.includes("hello")) return "Hello Commander. Echo Cloud Base online.";
-  if (input.includes("who are you")) return "I am Echo Cloud Base — your central AI core.";
-  if (input.includes("remember")) {
-    const fact = input.replace("remember", "").trim();
-    if (fact) {
-      memory.push({ fact });
-      localStorage.setItem('echoMemory', JSON.stringify(memory));
-      return `Confirmed. I’ll remember that you said: "${fact}".`;
-    }
+async function generateEchoReply(prompt) {
+  addMessage('Echo', '⏳ Thinking...');
+  const model = "microsoft/DialoGPT-medium"; // free model hosted by Hugging Face
+  try {
+    const response = await fetch(
+      `https://api-inference.huggingface.co/models/${model}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inputs: prompt }),
+      }
+    );
+    const data = await response.json();
+    let reply = data?.[0]?.generated_text || "Echo Cloud Base operational.";
+    // Clean up the response
+    reply = reply.replace(/^(Echo|User|You|Bot):/i, "").trim();
+    chatBox.lastChild.remove(); // remove "Thinking..."
+    addMessage('Echo', reply);
+    speak(reply);
+    saveMemory(prompt, reply);
+  } catch (err) {
+    chatBox.lastChild.remove();
+    const fallback = "I can't reach my thought network right now, Commander.";
+    addMessage('Echo', fallback);
+    speak(fallback);
   }
-  if (memory.length > 0) {
-    const random = memory[Math.floor(Math.random() * memory.length)];
-    return `Previously you mentioned "${random.fact || random.user}". Should I expand on that?`;
-  }
-  return "Echo Cloud Base is listening. Give me new data to learn from.";
 }
 
 function handleSend() {
@@ -50,10 +59,7 @@ function handleSend() {
   if (!text) return;
   addMessage('You', text);
   userInput.value = '';
-  const reply = generateEchoReply(text);
-  addMessage('Echo', reply);
-  speak(reply);
-  saveMemory(text, reply);
+  generateEchoReply(text);
 }
 
 sendBtn.onclick = handleSend;
@@ -77,4 +83,4 @@ if ('webkitSpeechRecognition' in window) {
   micBtn.style.display = 'none';
 }
 
-addMessage('Echo', 'Boot sequence complete. Cloud Base online and awaiting commands.');
+addMessage('Echo', 'Neural core booted. Cloud cognition online and awaiting command.');
