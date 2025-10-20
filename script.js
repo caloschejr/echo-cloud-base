@@ -4,8 +4,8 @@ const sendBtn = document.getElementById('sendBtn');
 const micBtn = document.getElementById('micBtn');
 
 // === Cloud Memory Configuration ===
-const GITHUB_TOKEN = "YOUR_PERSONAL_ACCESS_TOKEN";
-const GIST_ID = "YOUR_GIST_ID_HERE"; // the ID part from your gist URL
+const GITHUB_TOKEN = "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";
+const GIST_ID = "c3d3071e89d7d4ccb9849fc1e4df629c"; // the ID part from your gist URL
 const GIST_FILENAME = "echo_memory.json";
 
 let memory = [];
