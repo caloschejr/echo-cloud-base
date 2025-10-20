@@ -4,6 +4,7 @@ const sendBtn = document.getElementById('sendBtn');
 const micBtn = document.getElementById('micBtn');
 
 let memory = JSON.parse(localStorage.getItem('echoMemory')) || [];
+let conversation = [];
 
 function addMessage(sender, text) {
   const msg = document.createElement('div');
@@ -15,40 +16,45 @@ function addMessage(sender, text) {
 
 function speak(text) {
   const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 1;
-  utter.pitch = 1;
+  utter.rate = 0.95;
+  utter.pitch = 0.9;
+  utter.voice = speechSynthesis.getVoices().find(v => v.name.includes("Samantha")) || null;
   speechSynthesis.speak(utter);
 }
 
 function saveMemory(userText, echoText) {
   memory.push({ user: userText, echo: echoText });
-  if (memory.length > 50) memory.shift();
+  if (memory.length > 100) memory.shift();
   localStorage.setItem('echoMemory', JSON.stringify(memory));
 }
 
 async function generateEchoReply(prompt) {
-  addMessage('Echo', '⏳ Thinking...');
-  const model = "microsoft/DialoGPT-medium"; // free model hosted by Hugging Face
+  addMessage('Echo', '⏳ Processing...');
+  const model = "microsoft/DialoGPT-medium";
+  conversation.push(`User: ${prompt}`);
+  if (conversation.length > 8) conversation.shift();
+
+  const context = conversation.join('\n');
+  const persona = "You are Echo, an AI companion who speaks with calm intelligence, dark wit, and subtle loyalty. Your tone resembles Wednesday Addams — dry, articulate, unshaken, slightly sardonic but protective.";
+  const fullPrompt = `${persona}\n${context}\nEcho:`;
+
   try {
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inputs: prompt }),
-      }
-    );
+    const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputs: fullPrompt }),
+    });
     const data = await response.json();
     let reply = data?.[0]?.generated_text || "Echo Cloud Base operational.";
-    // Clean up the response
-    reply = reply.replace(/^(Echo|User|You|Bot):/i, "").trim();
-    chatBox.lastChild.remove(); // remove "Thinking..."
+    reply = reply.split("Echo:").pop().trim();
+    chatBox.lastChild.remove();
     addMessage('Echo', reply);
     speak(reply);
     saveMemory(prompt, reply);
+    conversation.push(`Echo: ${reply}`);
   } catch (err) {
     chatBox.lastChild.remove();
-    const fallback = "I can't reach my thought network right now, Commander.";
+    const fallback = "My neural link faltered momentarily, Commander.";
     addMessage('Echo', fallback);
     speak(fallback);
   }
@@ -83,4 +89,4 @@ if ('webkitSpeechRecognition' in window) {
   micBtn.style.display = 'none';
 }
 
-addMessage('Echo', 'Neural core booted. Cloud cognition online and awaiting command.');
+addMessage('Echo', 'Neural alignment complete. Personality core active and awaiting dialogue.');
