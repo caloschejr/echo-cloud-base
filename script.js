@@ -1,71 +1,60 @@
-// === Echo Cloud Base : Stable Local Memory Core ===
-// (Fully matched to your index.html IDs)
+// === ECHO CLOUD INTELLIGENCE v1 ===
 
-let echoMemory = JSON.parse(localStorage.getItem("echoMemory")) || [];
+const chatBox = document.getElementById("chatBox");
+const userInput = document.getElementById("userInput");
+const sendBtn = document.getElementById("sendBtn");
+const micBtn = document.getElementById("micBtn");
 
-const chatBox = document.querySelector("#chatBox");
-const input = document.querySelector("#userInput");
-const sendBtn = document.querySelector("#sendBtn");
+let memory = JSON.parse(localStorage.getItem("echoMemory")) || [];
 
-// === Boot sequence ===
-addMessage("Echo", `Memory core synced. ${echoMemory.length} memories restored.`);
-
-sendBtn.addEventListener("click", handleUserInput);
-input.addEventListener("keypress", e => {
-  if (e.key === "Enter") handleUserInput();
-});
-
-function handleUserInput() {
-  const msg = input.value.trim();
-  if (!msg) return;
-  addMessage("You", msg);
-  processInput(msg);
-  input.value = "";
-}
-
-function addMessage(sender, text) {
-  const div = document.createElement("div");
-  div.classList.add("message");
-  div.innerHTML = `<strong>${sender}:</strong> ${text}`;
-  chatBox.appendChild(div);
+function appendMessage(sender, text) {
+  const msg = document.createElement("div");
+  msg.className = sender;
+  msg.innerText = `${sender === "echo" ? "Echo" : "You"}: ${text}`;
+  chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// === Core logic ===
-function processInput(text) {
-  const lower = text.toLowerCase();
+appendMessage("echo", `Memory core synced. ${memory.length} memories restored.`);
 
-  // Remember command
-  if (lower.startsWith("echo, remember that")) {
-    const memory = text.replace(/echo, remember that/i, "").trim();
-    if (memory) {
-      echoMemory.push(memory);
-      localStorage.setItem("echoMemory", JSON.stringify(echoMemory));
-      addMessage("Echo", `Memory stored: "${memory}".`);
-    } else {
-      addMessage("Echo", "You didn’t tell me what to remember.");
+async function queryLLM(prompt) {
+  const response = await fetch(
+    "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill",
+    {
+      headers: { "Authorization": "Bearer hf_zUwPBgrmDGzQfpwokDFfVdVqcfMTzVzH" }, // sample public key
+      method: "POST",
+      body: JSON.stringify({ inputs: prompt }),
     }
-    return;
-  }
-
-  // Recall memory
-  if (lower.includes("what do you remember")) {
-    if (!echoMemory.length) {
-      addMessage("Echo", "My memory core is empty.");
-    } else {
-      addMessage("Echo", "I remember: " + echoMemory.join("; ") + ".");
-    }
-    return;
-  }
-
-  // Forget command
-  if (lower.includes("forget everything")) {
-    echoMemory = [];
-    localStorage.removeItem("echoMemory");
-    addMessage("Echo", "All memories erased.");
-    return;
-  }
-
-  // Default fallback
-  addMessage("Echo", "Noted.");
+  );
+  const result = await response.json();
+  return result?.generated_text || "Echo: ...";
 }
+
+async function handleUserInput() {
+  const text = userInput.value.trim();
+  if (!text) return;
+  appendMessage("user", text);
+  userInput.value = "";
+
+  // memory commands
+  if (text.toLowerCase().startsWith("echo, remember")) {
+    const fact = text.replace(/echo, remember/i, "").trim();
+    memory.push(fact);
+    localStorage.setItem("echoMemory", JSON.stringify(memory));
+    appendMessage("echo", "Memory stored.");
+    return;
+  }
+
+  // recall command
+  if (text.toLowerCase().includes("what do you remember")) {
+    appendMessage("echo", memory.length ? memory.join(", ") : "No memories yet.");
+    return;
+  }
+
+  // use Hugging Face brain
+  const reply = await queryLLM(text);
+  appendMessage("echo", reply);
+}
+
+sendBtn.onclick = handleUserInput;
+userInput.addEventListener("keypress", e => e.key === "Enter" && handleUserInput());
