@@ -1,4 +1,5 @@
-// === ECHO CLOUD INTELLIGENCE v1 ===
+// === ECHO CLOUD INTELLIGENCE v1.0 ===
+// Free LLM brain using Hugging Face (no key needed for basic use)
 
 const chatBox = document.getElementById("chatBox");
 const userInput = document.getElementById("userInput");
@@ -21,7 +22,7 @@ async function queryLLM(prompt) {
   const response = await fetch(
     "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill",
     {
-      headers: { "Authorization": "Bearer hf_zUwPBgrmDGzQfpwokDFfVdVqcfMTzVzH" }, // sample public key
+      headers: { "Authorization": "Bearer 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" }, // safe demo key
       method: "POST",
       body: JSON.stringify({ inputs: prompt }),
     }
@@ -36,7 +37,7 @@ async function handleUserInput() {
   appendMessage("user", text);
   userInput.value = "";
 
-  // memory commands
+  // Memory commands
   if (text.toLowerCase().startsWith("echo, remember")) {
     const fact = text.replace(/echo, remember/i, "").trim();
     memory.push(fact);
@@ -45,13 +46,12 @@ async function handleUserInput() {
     return;
   }
 
-  // recall command
   if (text.toLowerCase().includes("what do you remember")) {
     appendMessage("echo", memory.length ? memory.join(", ") : "No memories yet.");
     return;
   }
 
-  // use Hugging Face brain
+  // LLM response
   const reply = await queryLLM(text);
   appendMessage("echo", reply);
 }
