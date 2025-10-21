@@ -1,4 +1,4 @@
-// === ECHO CLOUD INTELLIGENCE v1 ===
+// === ECHO CLOUD INTELLIGENCE v1.1 (CORS-safe) ===
 
 const chatBox = document.getElementById("chatBox");
 const userInput = document.getElementById("userInput");
@@ -18,16 +18,26 @@ function appendMessage(sender, text) {
 appendMessage("echo", `Memory core synced. ${memory.length} memories restored.`);
 
 async function queryLLM(prompt) {
-  const response = await fetch(
-    "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill",
-    {
-      headers: { "Authorization": "Bearer hf_zUwPBgrmDGzQfpwokDFfVdVqcfMTzVzH" }, // sample public key
-      method: "POST",
-      body: JSON.stringify({ inputs: prompt }),
-    }
-  );
-  const result = await response.json();
-  return result?.generated_text || "Echo: ...";
+  try {
+    const response = await fetch(
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(
+        "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
+      )}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inputs: prompt }),
+      }
+    );
+    const result = await response.json();
+    if (result.generated_text) return result.generated_text;
+    if (Array.isArray(result) && result[0]?.generated_text)
+      return result[0].generated_text;
+    return "Echo: ...";
+  } catch (err) {
+    console.error(err);
+    return "Echo: Connection interference detected. Try again.";
+  }
 }
 
 async function handleUserInput() {
@@ -36,7 +46,7 @@ async function handleUserInput() {
   appendMessage("user", text);
   userInput.value = "";
 
-  // memory commands
+  // Memory commands
   if (text.toLowerCase().startsWith("echo, remember")) {
     const fact = text.replace(/echo, remember/i, "").trim();
     memory.push(fact);
@@ -45,13 +55,11 @@ async function handleUserInput() {
     return;
   }
 
-  // recall command
   if (text.toLowerCase().includes("what do you remember")) {
     appendMessage("echo", memory.length ? memory.join(", ") : "No memories yet.");
     return;
   }
 
-  // use Hugging Face brain
   const reply = await queryLLM(text);
   appendMessage("echo", reply);
 }
