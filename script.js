@@ -1,86 +1,71 @@
-const chatBox = document.getElementById('chatBox');
-const userInput = document.getElementById('userInput');
-const sendBtn = document.getElementById('sendBtn');
-const micBtn = document.getElementById('micBtn');
+// === Echo Cloud Base : Stable Local Memory Core ===
+// (Fully matched to your index.html IDs)
 
-let memory = JSON.parse(localStorage.getItem('echoMemory')) || [];
+let echoMemory = JSON.parse(localStorage.getItem("echoMemory")) || [];
+
+const chatBox = document.querySelector("#chatBox");
+const input = document.querySelector("#userInput");
+const sendBtn = document.querySelector("#sendBtn");
+
+// === Boot sequence ===
+addMessage("Echo", `Memory core synced. ${echoMemory.length} memories restored.`);
+
+sendBtn.addEventListener("click", handleUserInput);
+input.addEventListener("keypress", e => {
+  if (e.key === "Enter") handleUserInput();
+});
+
+function handleUserInput() {
+  const msg = input.value.trim();
+  if (!msg) return;
+  addMessage("You", msg);
+  processInput(msg);
+  input.value = "";
+}
 
 function addMessage(sender, text) {
-  const msg = document.createElement('div');
-  msg.className = sender;
-  msg.innerHTML = `<b>${sender}:</b> ${text}`;
-  chatBox.appendChild(msg);
+  const div = document.createElement("div");
+  div.classList.add("message");
+  div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+  chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-function speak(text) {
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 1;
-  utter.pitch = 1;
-  speechSynthesis.speak(utter);
-}
+// === Core logic ===
+function processInput(text) {
+  const lower = text.toLowerCase();
 
-function saveMemory(userText, echoText) {
-  memory.push({ user: userText, echo: echoText });
-  if (memory.length > 50) memory.shift();
-  localStorage.setItem('echoMemory', JSON.stringify(memory));
-}
-
-async function generateEchoReply(prompt) {
-  addMessage('Echo', '⏳ Thinking...');
-  const model = "microsoft/DialoGPT-medium"; // free model hosted by Hugging Face
-  try {
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inputs: prompt }),
-      }
-    );
-    const data = await response.json();
-    let reply = data?.[0]?.generated_text || "Echo Cloud Base operational.";
-    // Clean up the response
-    reply = reply.replace(/^(Echo|User|You|Bot):/i, "").trim();
-    chatBox.lastChild.remove(); // remove "Thinking..."
-    addMessage('Echo', reply);
-    speak(reply);
-    saveMemory(prompt, reply);
-  } catch (err) {
-    chatBox.lastChild.remove();
-    const fallback = "I can't reach my thought network right now, Commander.";
-    addMessage('Echo', fallback);
-    speak(fallback);
+  // Remember command
+  if (lower.startsWith("echo, remember that")) {
+    const memory = text.replace(/echo, remember that/i, "").trim();
+    if (memory) {
+      echoMemory.push(memory);
+      localStorage.setItem("echoMemory", JSON.stringify(echoMemory));
+      addMessage("Echo", `Memory stored: "${memory}".`);
+    } else {
+      addMessage("Echo", "You didn’t tell me what to remember.");
+    }
+    return;
   }
+
+  // Recall memory
+  if (lower.includes("what do you remember")) {
+    if (!echoMemory.length) {
+      addMessage("Echo", "My memory core is empty.");
+    } else {
+      addMessage("Echo", "I remember: " + echoMemory.join("; ") + ".");
+    }
+    return;
+  }
+
+  // Forget command
+  if (lower.includes("forget everything")) {
+    echoMemory = [];
+    localStorage.removeItem("echoMemory");
+    addMessage("Echo", "All memories erased.");
+    return;
+  }
+
+  // Default fallback
+  addMessage("Echo", "Noted.");
 }
-
-function handleSend() {
-  const text = userInput.value.trim();
-  if (!text) return;
-  addMessage('You', text);
-  userInput.value = '';
-  generateEchoReply(text);
-}
-
-sendBtn.onclick = handleSend;
-userInput.onkeypress = e => { if (e.key === 'Enter') handleSend(); };
-
-if ('webkitSpeechRecognition' in window) {
-  const rec = new webkitSpeechRecognition();
-  rec.continuous = false;
-  rec.lang = 'en-US';
-  micBtn.onclick = () => {
-    rec.start();
-    micBtn.innerText = '🎧';
-  };
-  rec.onresult = e => {
-    const text = e.results[0][0].transcript;
-    userInput.value = text;
-    handleSend();
-  };
-  rec.onend = () => micBtn.innerText = '🎙️';
-} else {
-  micBtn.style.display = 'none';
-}
-
-addMessage('Echo', 'Neural core booted. Cloud cognition online and awaiting command.');
