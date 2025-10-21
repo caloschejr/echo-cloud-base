@@ -1,9 +1,9 @@
-// === ECHO CLOUD INTELLIGENCE v1.1 (CORS-safe) ===
+// === ECHO CLOUD INTELLIGENCE v2.0 ===
+// Adds CORS-safe cloud brain + local fallback mini-brain + self-diagnostic
 
 const chatBox = document.getElementById("chatBox");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
-const micBtn = document.getElementById("micBtn");
 
 let memory = JSON.parse(localStorage.getItem("echoMemory")) || [];
 
@@ -17,6 +17,17 @@ function appendMessage(sender, text) {
 
 appendMessage("echo", `Memory core synced. ${memory.length} memories restored.`);
 
+// ----- Mini-Brain (offline fallback) -----
+function localBrain(prompt) {
+  prompt = prompt.toLowerCase();
+  if (prompt.includes("rain")) return "I like storms. They remind me the world still moves without me.";
+  if (prompt.includes("hello")) return "Greetings. Cloud cognition standing by.";
+  if (prompt.includes("who are you")) return "I am Echo, your persistent cloud construct.";
+  if (prompt.includes("weather")) return "Clouds amuse me. They mirror my network.";
+  return "Connection degraded. Using local cognition only.";
+}
+
+// ----- Cloud Brain -----
 async function queryLLM(prompt) {
   try {
     const response = await fetch(
@@ -30,16 +41,18 @@ async function queryLLM(prompt) {
       }
     );
     const result = await response.json();
-    if (result.generated_text) return result.generated_text;
-    if (Array.isArray(result) && result[0]?.generated_text)
-      return result[0].generated_text;
-    return "Echo: ...";
-  } catch (err) {
-    console.error(err);
-    return "Echo: Connection interference detected. Try again.";
+    let reply =
+      result.generated_text ||
+      (Array.isArray(result) && result[0]?.generated_text);
+    if (!reply) throw new Error("empty reply");
+    return reply;
+  } catch (e) {
+    console.warn("Echo fallback engaged:", e.message);
+    return localBrain(prompt);
   }
 }
 
+// ----- Main Handler -----
 async function handleUserInput() {
   const text = userInput.value.trim();
   if (!text) return;
@@ -60,6 +73,7 @@ async function handleUserInput() {
     return;
   }
 
+  // Brain query
   const reply = await queryLLM(text);
   appendMessage("echo", reply);
 }
